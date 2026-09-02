@@ -1,0 +1,3 @@
+StandIQ database migrations.
+
+Use `alembic upgrade head` and `alembic downgrade base` from this directory.

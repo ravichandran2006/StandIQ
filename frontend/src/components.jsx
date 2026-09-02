@@ -2,8 +2,8 @@ import { useState } from 'react'
 
 export function Icon({ children }) { return <span className="icon" aria-hidden="true">{children}</span> }
 
-export function TopNavigation() {
-  return <header className="top-nav"><div className="brand"><span className="brand-mark">◆</span><span><strong>StandIQ</strong><small>Right Standards. Right Tenders.</small></span></div><nav className="top-links"><button><Icon>⌂</Icon>Home</button><button><Icon>⌕</Icon>Search</button><button><Icon>⇧</Icon>Upload Document</button><button><Icon>◷</Icon>History</button><button><Icon>▱</Icon>Saved</button></nav><button className="profile" aria-label="Open profile">AR</button></header>
+export function TopNavigation({ onNavigate, onProfile }) {
+  return <header className="top-nav"><button className="brand brand-button" onClick={() => onNavigate('Dashboard')}><span className="brand-mark">◆</span><span><strong>StandIQ</strong><small>Right Standards. Right Tenders.</small></span></button><nav className="top-links"><button onClick={() => onNavigate('Dashboard')}><Icon>⌂</Icon>Home</button><button onClick={() => onNavigate('Search Standards')}><Icon>⌕</Icon>Search</button><button onClick={() => onNavigate('Upload Document')}><Icon>⇧</Icon>Upload Document</button><button onClick={() => onNavigate('History')}><Icon>◷</Icon>History</button><button onClick={() => onNavigate('Saved Results')}><Icon>▱</Icon>Saved</button></nav><button className="profile" aria-label="Open profile" onClick={onProfile}>AR</button></header>
 }
 
 export function Sidebar({ active, onSelect }) {
@@ -65,4 +65,23 @@ export function Traceability({ traceability, onSources, onEvidence }) {
 
 export function DocumentAnalysis({ document, onUpload }) {
   return <section className="panel document-panel"><SectionHeader title="Document Analysis" action="Upload Document" onAction={onUpload} /><div className="document-grid"><p><span>Document Name</span><strong>{document.name}</strong></p><p><span>Pages Processed</span><strong>{document.pages}</strong></p><p><span>Language Detected</span><strong>{document.language}</strong></p><p><span>Requirements Extracted</span><strong>{document.extracted}</strong></p><p><span>Requirements Relevant to Standards</span><strong>{document.relevant}</strong></p></div></section>
+}
+
+export function PageHeading({ eyebrow, title, description }) { return <div className="page-heading"><span className="eyebrow">{eyebrow}</span><h1>{title}</h1><p>{description}</p></div> }
+
+export function SearchPage({ onSearch }) {
+  const [query, setQuery] = useState('')
+  return <section className="page-view"><PageHeading eyebrow="Standards intelligence" title="Search Standards" description="Describe a procurement requirement to prepare a standards analysis." /><div className="panel form-panel"><label htmlFor="requirement">Procurement requirement</label><textarea id="requirement" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Example: stainless steel cable tray for industrial electrical wiring" /><div className="form-footer"><span>English · Malayalam · Tamil · Hindi</span><button className="button primary" onClick={() => onSearch(query)} disabled={!query.trim()}>⌕ Start Analysis</button></div></div></section>
+}
+
+export function UploadPage({ selectedFile, onFile, onAnalyze }) {
+  return <section className="page-view"><PageHeading eyebrow="Document workspace" title="Upload Document" description="Add a tender or technical specification for document analysis." /><div className="panel upload-panel"><label className="drop-zone" htmlFor="document-upload"><span className="upload-icon">⇧</span><strong>{selectedFile ? selectedFile.name : 'Choose a document to analyze'}</strong><span>PDF, Word or text files · Maximum 20 MB</span><input id="document-upload" type="file" accept=".pdf,.doc,.docx,.txt,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain" onChange={(event) => onFile(event.target.files?.[0] || null)} /></label>{selectedFile && <div className="selected-file"><span>✓ Ready for analysis</span><small>{Math.ceil(selectedFile.size / 1024)} KB · {selectedFile.type || 'Document'}</small></div>}<button className="button primary" disabled={!selectedFile} onClick={onAnalyze}>Analyze Document</button></div></section>
+}
+
+export function HistoryPage({ history, onOpen }) {
+  return <section className="page-view"><PageHeading eyebrow="Workspace memory" title="Search History" description="Review previous procurement requirements and reopen a result." /><div className="history-list">{history.length ? history.map((item) => <button className="panel history-item" key={item.id} onClick={() => onOpen(item)}><span className="history-icon">◷</span><span><strong>{item.text}</strong><small>{item.source} · {item.createdAt}</small></span><span className="history-arrow">→</span></button>) : <div className="panel empty-state">No searches yet. Start with a procurement requirement.</div>}</div></section>
+}
+
+export function SimplePage({ title, description, actionLabel, onAction }) {
+  return <section className="page-view"><PageHeading eyebrow="StandIQ workspace" title={title} description={description} /><div className="panel empty-state"><span className="empty-icon">◇</span><h2>{title} is ready</h2><p>This workspace is prepared for the next product phase.</p>{actionLabel && <button className="button primary" onClick={onAction}>{actionLabel}</button>}</div></section>
 }

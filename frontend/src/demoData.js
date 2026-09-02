@@ -6,7 +6,7 @@ export const recommendationDemo = {
     searchedAt: '28 May 2025, 10:30 AM',
   },
   metrics: [
-    { label: 'Best Match Score', value: '95%', note: 'High relevance', tone: 'green', featured: true },
+    { label: 'Best Match Score', value: '00%', note: 'High relevance', tone: 'green', featured: true },
     { label: 'Standards Found', value: '12', note: 'Relevant Standards', tone: 'blue' },
     { label: 'Related Standards', value: '8', note: 'Normative / Allied', tone: 'green' },
     { label: 'Latest Version', value: 'Up to date', note: 'Includes Amendments', tone: 'orange' },
