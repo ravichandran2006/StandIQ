@@ -2,10 +2,14 @@ from contextlib import asynccontextmanager
 from uuid import uuid4
 
 from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
+from sqlalchemy.exc import SQLAlchemyError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app.api.v1 import router as v1_router
+from app.api.standards import router as standards_router
+from app.application.errors import ServiceError
 from app.infrastructure.database import Database
 from app.infrastructure.external_services import LLMClient, PineconeClient
 from app.logging_config import configure_logging
@@ -59,6 +63,20 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         return response
 
     app.include_router(v1_router)
+    app.include_router(standards_router, prefix="/api/v1")
+
+    @app.exception_handler(ServiceError)
+    async def service_error_handler(_request: Request, exc: ServiceError):
+        return JSONResponse(status_code=exc.status_code, content={"error": {"code": exc.code, "message": exc.message}})
+
+    @app.exception_handler(RequestValidationError)
+    async def validation_error_handler(_request: Request, exc: RequestValidationError):
+        return JSONResponse(status_code=422, content={"error": {"code": "validation_error", "message": "Request validation failed", "details": exc.errors()}})
+
+    @app.exception_handler(SQLAlchemyError)
+    async def database_error_handler(_request: Request, _exc: SQLAlchemyError):
+        return JSONResponse(status_code=503, content={"error": {"code": "database_unavailable", "message": "Database schema or connection is unavailable"}})
+
     return app
 
 

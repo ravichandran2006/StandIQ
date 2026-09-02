@@ -1,5 +1,6 @@
 import asyncio
 import os
+from pathlib import Path
 from logging.config import fileConfig
 
 from alembic import context
@@ -17,7 +18,7 @@ if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
 target_metadata = Base.metadata
-load_dotenv()
+load_dotenv(Path(__file__).resolve().parents[2] / ".env")
 
 
 def database_url() -> str:
