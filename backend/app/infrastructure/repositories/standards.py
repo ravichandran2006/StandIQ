@@ -4,7 +4,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.domain.models import Standard, StandardRelationship, StandardVersion
+from app.domain.models import Standard, StandardClassification, StandardRelationship, StandardVersion
 
 
 class StandardRepository:
@@ -38,6 +38,27 @@ class StandardRepository:
     async def list_by_status(self, status: str) -> Sequence[Standard]:
         rows, _ = await self.list(offset=0, limit=100, status=status)
         return rows
+
+    async def list_for_index(self, *, offset: int, limit: int) -> Sequence[Standard]:
+        statement = (
+            select(Standard)
+            .options(
+                selectinload(Standard.versions),
+                selectinload(Standard.classifications).selectinload(StandardClassification.classification),
+                selectinload(Standard.source_record),
+            )
+            .order_by(Standard.is_number)
+            .offset(offset)
+            .limit(limit)
+        )
+        return (await self.session.execute(statement)).scalars().unique().all()
+
+    async def get_many_by_ids(self, standard_ids: Sequence[str]) -> dict[str, Standard]:
+        if not standard_ids:
+            return {}
+        statement = select(Standard).options(selectinload(Standard.source_record)).where(Standard.id.in_(standard_ids))
+        rows = (await self.session.execute(statement)).scalars().all()
+        return {standard.id: standard for standard in rows}
 
     async def add(self, standard: Standard) -> Standard:
         self.session.add(standard)

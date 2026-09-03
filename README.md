@@ -2,7 +2,7 @@
 
 **Right Standards. Right Tenders.**
 
-StandIQ is an AI-powered Indian standards intelligence system for procurement. Phase 1 establishes the React and FastAPI foundation only. BIS ingestion, OCR, embeddings, retrieval, ranking, compliance intelligence, and recommendation workflows are intentionally deferred.
+StandIQ is an AI-powered Indian standards intelligence system for procurement. The repository currently includes the React/FastAPI foundation, domain persistence, ingestion framework, and a deterministic Phase 5 multilingual/text-input baseline. PaddleOCR runtime, embeddings, retrieval, ranking, compliance intelligence, and recommendation workflows remain deferred.
 
 ## Stack
 
@@ -10,7 +10,7 @@ StandIQ is an AI-powered Indian standards intelligence system for procurement. P
 - Python 3.13+ with FastAPI and Uvicorn
 - Neon PostgreSQL through SQLAlchemy and `asyncpg`
 - Pinecone, provider-neutral LLM, and configurable multilingual embeddings in later phases
-- PaddleOCR in a later phase
+- PaddleOCR as the production OCR adapter in a later phase
 
 The backend is the only component that will access PostgreSQL. Docker and local PostgreSQL are not required.
 
