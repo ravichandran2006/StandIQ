@@ -12,3 +12,5 @@ alembic>=1.14,<2
 aiosqlite>=0.20,<1
 sentence-transformers>=5.0,<7
 pinecone>=9.0,<10
+python-multipart>=0.0.20
+pypdf>=5.0.0

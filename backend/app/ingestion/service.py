@@ -24,6 +24,7 @@ class IngestionService:
             return stats
 
         run = await self.repository.begin_run(adapter.source_type)
+        pending_relationships: list[tuple[Any, Any, Any, str]] = []
         try:
             async for raw in adapter.records(incremental=mode == "incremental"):
                 stats.discovered += 1
@@ -34,9 +35,24 @@ class IngestionService:
                         if errors:
                             stats.fail(f"{raw.external_identifier}: {'; '.join(errors)}")
                             continue
-                        await self._ingest_record(record, run, stats)
+                        await self._ingest_record(record, run, stats, pending_relationships)
                 except Exception as exc:
                     stats.fail(f"{raw.external_identifier}: {type(exc).__name__}")
+            
+            # Resolve deferred relationships now that all standards in batch are inserted
+            for standard, item, source, is_number in pending_relationships:
+                try:
+                    async with self.session.begin_nested():
+                        created, target_found = await self.repository.upsert_relationship(standard, item, source)
+                        if not target_found:
+                            stats.fail(f"{is_number}: relationship target not found: {item.target_is_number}")
+                        elif created:
+                            stats.updated += 1
+                        else:
+                            stats.skipped += 1
+                except Exception as exc:
+                    stats.fail(f"{is_number}: relationship failed: {type(exc).__name__}")
+
             await self.repository.finish_run(run, "failed" if stats.failed and not stats.inserted and not stats.updated else "completed", stats.as_dict())
             await self.session.commit()
         except Exception as exc:
@@ -58,7 +74,7 @@ class IngestionService:
         except Exception as exc:
             stats.fail(f"{raw.external_identifier}: {type(exc).__name__}")
 
-    async def _ingest_record(self, record: StandardIngestionRecord, run: IngestionRun, stats: IngestionStats) -> None:
+    async def _ingest_record(self, record: StandardIngestionRecord, run: IngestionRun, stats: IngestionStats, pending_relationships: list[tuple[Any, Any, Any, str]]) -> None:
         source, source_created = await self.repository.upsert_source(record, run.id)
         standard, standard_created, standard_changed = await self.repository.upsert_standard(record, source)
         if standard_created:
@@ -85,13 +101,7 @@ class IngestionService:
         for item in record.classifications:
             await self.repository.upsert_classification(standard, item)
         for item in record.relationships:
-            created, target_found = await self.repository.upsert_relationship(standard, item, source)
-            if not target_found:
-                stats.fail(f"{record.is_number}: relationship target not found: {item.target_is_number}")
-            elif created:
-                stats.updated += 1
-            else:
-                stats.skipped += 1
+            pending_relationships.append((standard, item, source, record.is_number))
         for item in record.certifications:
             await self.repository.upsert_certification(item, source)
         for item in record.qco_records:
@@ -100,3 +110,4 @@ class IngestionService:
             await self.repository.upsert_regulatory(standard, item, source, "crs")
         for item in record.hallmarking_rules:
             await self.repository.upsert_regulatory(standard, item, source, "hallmarking")
+

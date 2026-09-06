@@ -4,6 +4,7 @@ from fastapi import Depends, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.application.standards import StandardService
+from app.application.recommendations import RecommendationService
 from app.application.errors import DatabaseUnavailableError
 
 
@@ -17,3 +18,7 @@ async def get_session(request: Request) -> AsyncGenerator[AsyncSession, None]:
 
 def get_standard_service(session: AsyncSession = Depends(get_session)) -> StandardService:
     return StandardService(session)
+
+
+def get_recommendation_service(request: Request, session: AsyncSession = Depends(get_session)) -> RecommendationService:
+    return RecommendationService(session, settings=request.app.state.settings)

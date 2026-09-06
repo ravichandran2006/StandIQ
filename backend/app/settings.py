@@ -24,7 +24,14 @@ class Settings(BaseSettings):
     embedding_model: str | None = None
     app_secret_key: SecretStr | None = None
     log_level: LogLevel = "INFO"
-    cors_origins: Annotated[list[str], NoDecode] = ["http://localhost:5173", "http://127.0.0.1:5173"]
+    cors_origins: Annotated[list[str], NoDecode] = [
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        "http://localhost:5174",
+        "http://127.0.0.1:5174",
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+    ]
 
     model_config = SettingsConfigDict(
         env_file=(str(PROJECT_ROOT / ".env"), str(PROJECT_ROOT / "backend" / ".env")),

@@ -60,7 +60,6 @@ class RequirementTextExtraction:
         if self.confidence is not None and not 0 <= self.confidence <= 1:
             raise ValueError("extraction confidence must be between 0 and 1")
 
-
 class LanguageDetector(Protocol):
     async def detect(self, text: str) -> LanguageMetadata:
         """Detect language without translating or changing the original text."""

@@ -65,3 +65,38 @@ class RelationshipResponse(BaseModel):
     target_standard_id: str
     relationship_type: str
     evidence_note: str | None
+
+
+class RecommendationRequest(BaseModel):
+    text: str = Field(min_length=1, max_length=20000)
+    language: str | None = Field(default=None, min_length=2, max_length=10)
+
+
+class RecommendationResponse(BaseModel):
+    requirement: dict
+    standards: list[dict]
+    missing_information: list[str]
+    tender_ready_recommendations: list[str]
+    summary: dict
+    document: dict | None = None
+
+
+class RefineRequest(BaseModel):
+    original_text: str = Field(min_length=1, max_length=20000)
+    refinement: str = Field(min_length=1, max_length=20000)
+    language: str | None = Field(default=None, min_length=2, max_length=10)
+
+
+class ExplanationRequest(BaseModel):
+    text: str = Field(min_length=1, max_length=20000)
+    standard_id: str = Field(min_length=1)
+    language: str | None = Field(default=None, min_length=2, max_length=10)
+
+
+class TenderRequest(BaseModel):
+    text: str = Field(min_length=1, max_length=20000)
+    language: str | None = Field(default=None, min_length=2, max_length=10)
+
+
+class DetailContextRequest(BaseModel):
+    text: str = Field(default="", max_length=20000)

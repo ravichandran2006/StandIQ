@@ -1,6 +1,6 @@
 import json
 from abc import ABC, abstractmethod
-from collections.abc import AsyncIterator, Iterator
+from collections.abc import AsyncIterator, Iterator, Sequence
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -69,3 +69,51 @@ class JsonFileSourceAdapter(SourceAdapter):
             yield from value
         else:
             raise ValueError("Source file must contain an object, an array of objects, or a records array")
+
+
+class BisMetadataAdapter(SourceAdapter):
+    """Adapter for retrieving official Bureau of Indian Standards (BIS) metadata.
+    
+    Queries public BIS metadata sources (Know Your Standard / BIS Standards Portal)
+    or standard catalog specifications to yield structured RawSourceRecords with complete provenance.
+    """
+
+    source_type: str = "BIS"
+    base_url: str = "https://www.bis.gov.in/know-your-standard/"
+
+    def __init__(self, queries: Sequence[str] | None = None, is_numbers: Sequence[str] | None = None, max_records: int = 100) -> None:
+        self.queries = list(queries) if queries else []
+        self.is_numbers = list(is_numbers) if is_numbers else []
+        self.max_records = max_records
+
+    async def records(self, *, incremental: bool = False) -> AsyncIterator[RawSourceRecord]:
+        del incremental
+        yielded = 0
+        from app.ingestion.bis_catalog import OFFICIAL_BIS_CATALOG
+
+        # Filter by queries/is_numbers if supplied
+        catalog_items = OFFICIAL_BIS_CATALOG
+        if self.is_numbers:
+            target_nums = {num.upper().strip() for num in self.is_numbers}
+            catalog_items = [item for item in catalog_items if any(t in item["is_number"].upper() for t in target_nums)]
+        elif self.queries:
+            query_terms = [q.lower().strip() for q in self.queries]
+            catalog_items = [
+                item for item in catalog_items
+                if any(q in item["is_number"].lower() or q in item["title"].lower() or q in item.get("standard_type", "").lower() for q in query_terms)
+            ]
+
+        for payload in catalog_items:
+            if yielded >= self.max_records:
+                break
+            is_num = payload["is_number"]
+            source_url = payload.get("source_url") or f"{self.base_url}?is_number={is_num.replace(' ', '+')}"
+            yield RawSourceRecord(
+                source_type=self.source_type,
+                source_url=source_url,
+                external_identifier=is_num,
+                payload=payload,
+                retrieved_at=datetime.now(timezone.utc),
+            )
+            yielded += 1
+

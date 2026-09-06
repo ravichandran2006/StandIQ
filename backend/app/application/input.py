@@ -122,6 +122,99 @@ class PlainTextOCRProcessor(OCRProcessor):
         return OCRDocumentResult(document_id=document.metadata.document_id, pages=(page,), metadata={"processor": "plain-text"})
 
 
+class PDFOCRProcessor(OCRProcessor):
+    """Process PDF documents and extract page text using pypdf."""
+
+    supported_types = frozenset({DocumentType.PDF, DocumentType.TECHNICAL_SPECIFICATION})
+
+    def __init__(self, language_detector: LanguageDetector | None = None) -> None:
+        self.language_detector = language_detector or UnicodeLanguageDetector()
+
+    async def process(self, document: DocumentInput) -> OCRDocumentResult:
+        if document.metadata.document_type not in self.supported_types and document.metadata.media_type not in ("application/pdf", "application/x-pdf"):
+            raise DocumentProcessingError(
+                "PDF adapter does not support this document format",
+                document_id=document.metadata.document_id,
+            )
+        try:
+            import io
+            from pypdf import PdfReader
+
+            reader = PdfReader(io.BytesIO(document.content), strict=False)
+            if getattr(reader, "is_encrypted", False):
+                try:
+                    reader.decrypt("")
+                except Exception:
+                    pass
+        except Exception as exc:
+            raise DocumentProcessingError(
+                "Unable to extract text from the uploaded PDF.",
+                document_id=document.metadata.document_id,
+            ) from exc
+
+        pages: list[OCRPageResult] = []
+        full_text_chunks: list[str] = []
+
+        try:
+            for idx, page in enumerate(reader.pages, start=1):
+                try:
+                    page_text = (page.extract_text() or "").strip()
+                except Exception:
+                    page_text = ""
+                if page_text:
+                    full_text_chunks.append(page_text)
+                    lang = await self.language_detector.detect(page_text)
+                else:
+                    lang = None
+                pages.append(
+                    OCRPageResult(
+                        page_number=idx,
+                        extracted_text=page_text if page_text else "",
+                        language=lang,
+                        confidence=1.0 if page_text else None,
+                        errors=() if page_text else ("No readable text on page",),
+                        metadata={"processor": "pypdf", "page_index": idx - 1},
+                    )
+                )
+        except Exception as exc:
+            raise DocumentProcessingError(
+                "Unable to extract text from the uploaded PDF.",
+                document_id=document.metadata.document_id,
+            ) from exc
+
+        extracted_text = "\n\n".join(full_text_chunks).strip()
+        if not extracted_text:
+            raise DocumentProcessingError(
+                "No readable text found in the uploaded document.",
+                document_id=document.metadata.document_id,
+            )
+
+        return OCRDocumentResult(
+            document_id=document.metadata.document_id,
+            pages=tuple(pages),
+            metadata={
+                "processor": "pypdf",
+                "total_pages": len(reader.pages),
+                "extracted_text_length": len(extracted_text),
+                "full_text": extracted_text,
+            },
+        )
+
+
+class DocumentOCRProcessor(OCRProcessor):
+    """Unified document processor for PDFs and plain text."""
+
+    def __init__(self, language_detector: LanguageDetector | None = None) -> None:
+        self.language_detector = language_detector or UnicodeLanguageDetector()
+        self.pdf_processor = PDFOCRProcessor(self.language_detector)
+        self.plain_text_processor = PlainTextOCRProcessor(self.language_detector)
+
+    async def process(self, document: DocumentInput) -> OCRDocumentResult:
+        if document.metadata.document_type == DocumentType.PDF or document.metadata.media_type in ("application/pdf", "application/x-pdf"):
+            return await self.pdf_processor.process(document)
+        return await self.plain_text_processor.process(document)
+
+
 class InputProcessingPipeline:
     """Run language detection, normalization, and text-level extraction in order."""
 

@@ -2,14 +2,14 @@
 
 **Right Standards. Right Tenders.**
 
-StandIQ is an AI-powered Indian standards intelligence system for procurement. The repository currently includes the React/FastAPI foundation, domain persistence, ingestion framework, and a deterministic Phase 5 multilingual/text-input baseline. PaddleOCR runtime, embeddings, retrieval, ranking, compliance intelligence, and recommendation workflows remain deferred.
+StandIQ is an AI-powered Indian standards intelligence system for procurement. The repository includes the React/FastAPI foundation, domain persistence, ingestion framework, multilingual text processing, and a deterministic evidence-aware text recommendation workflow. Recommendations use stored standards metadata and explicitly mark unsupported provenance as requiring verification.
 
 ## Stack
 
 - React with Vite
 - Python 3.13+ with FastAPI and Uvicorn
 - Neon PostgreSQL through SQLAlchemy and `asyncpg`
-- Pinecone, provider-neutral LLM, and configurable multilingual embeddings in later phases
+- Pinecone, provider-neutral LLM, and configurable multilingual embeddings as optional later-phase adapters
 - PaddleOCR as the production OCR adapter in a later phase
 
 The backend is the only component that will access PostgreSQL. Docker and local PostgreSQL are not required.
@@ -34,6 +34,7 @@ backend\.venv\Scripts\python.exe -m uvicorn app.main:app --app-dir backend --rel
 ```
 
 Health endpoint: `http://localhost:8000/api/v1/health`.
+Recommendation endpoint: `POST http://localhost:8000/api/v1/recommendations` with `{ "text": "...", "language": "en" }`.
 
 ### Frontend
 
@@ -52,7 +53,7 @@ npm run build
 ## Environment variables
 
 - `DATABASE_URL`: Neon PostgreSQL connection string.
-- `PINECONE_API_KEY`, `PINECONE_INDEX_NAME`: Pinecone configuration; the index is not created or populated in Phase 1.
+- `PINECONE_API_KEY`, `PINECONE_INDEX_NAME`: Pinecone configuration; connectivity and indexing remain unverified until credentials and an approved corpus are available.
 - `LLM_PROVIDER`, `LLM_API_KEY`, `LLM_MODEL`: provider-neutral LLM configuration.
 - `EMBEDDING_PROVIDER`, `EMBEDDING_MODEL`: multilingual embedding configuration.
 - `APP_SECRET_KEY`: server-side application secret for later authenticated workflows.
@@ -61,6 +62,8 @@ npm run build
 - `APP_ENV`: environment name, such as `development` or `production`.
 
 Missing external credentials produce `not_configured` component states; the application health endpoint remains available. No credential values are printed.
+
+No authorized BIS dataset is bundled. Records used in tests are synthetic fixtures and must not be presented as BIS data. The recommendation endpoint abstains when no stored standard matches; compliance mappings remain `verification_required` and are not legal determinations.
 
 ## Tests
 

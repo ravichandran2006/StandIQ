@@ -5,7 +5,7 @@ from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import create_async_engine
 
 from app.domain.models.base import Base
-from app.domain.models import Standard, StandardRelationship, StandardVersion
+from app.domain.models import SourceRecord, Standard, StandardRelationship, StandardVersion
 from app.main import create_app
 from app.settings import Settings
 
@@ -84,3 +84,35 @@ async def test_related_resource_endpoints(client: AsyncClient) -> None:
     assert versions.json()[0]["edition_label"] == "Synthetic edition"
     assert relationships.status_code == 200
     assert relationships.json()[0]["relationship_type"] == "RELATED"
+
+
+@pytest.mark.asyncio
+async def test_recommendation_returns_traceable_ranked_standard(client: AsyncClient) -> None:
+    database = client._transport.app.state.database
+    async for session in database.session():
+        source = SourceRecord(source_type="test", external_identifier="recommendation-source", source_url="https://example.test/standard", source_status="retrieved")
+        standard = Standard(is_number="TEST-REC-001", title="Steel cable tray for industrial wiring", status="active", source_record=source)
+        standard.versions.append(StandardVersion(edition_label="2026 edition", edition_year=2026, is_current=True, status="active"))
+        session.add(standard)
+        await session.commit()
+
+    response = await client.post("/api/v1/recommendations", json={"text": "stainless steel cable tray for industrial wiring"})
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["requirement"]["original_text"] == "stainless steel cable tray for industrial wiring"
+    assert body["requirement"]["detected_language"] == "en"
+    assert body["standards"][0]["is_number"] == "TEST-REC-001"
+    assert body["standards"][0]["evidence_state"] == "supported"
+    assert body["standards"][0]["provenance"]["source_url"] == "https://example.test/standard"
+    assert body["standards"][0]["version"]["status"] == "current"
+
+
+@pytest.mark.asyncio
+async def test_recommendation_abstains_when_no_standard_matches(client: AsyncClient) -> None:
+    response = await client.post("/api/v1/recommendations", json={"text": "unlisted procurement category"})
+
+    assert response.status_code == 200
+    assert response.json()["standards"] == []
+    assert response.json()["summary"]["status"] == "database_empty"
+    assert "Data blocker" in response.json()["tender_ready_recommendations"][0]

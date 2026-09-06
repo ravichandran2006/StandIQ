@@ -9,6 +9,7 @@ from fastapi.responses import JSONResponse
 
 from app.api.v1 import router as v1_router
 from app.api.standards import router as standards_router
+from app.api.recommendations import router as recommendations_router
 from app.application.errors import ServiceError
 from app.infrastructure.database import Database
 from app.infrastructure.external_services import LLMClient, PineconeClient
@@ -44,9 +45,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.add_middleware(
         CORSMiddleware,
         allow_origins=resolved_settings.cors_origins,
+        allow_origin_regex=r"https?://(localhost|127\.0\.0\.1|0\.0\.0\.0|\[::1\])(:\d+)?",
         allow_credentials=True,
-        allow_methods=["GET"],
-        allow_headers=["Content-Type", "X-Request-ID"],
+        allow_methods=["*"],
+        allow_headers=["*"],
     )
 
     @app.middleware("http")
@@ -64,6 +66,32 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     app.include_router(v1_router)
     app.include_router(standards_router, prefix="/api/v1")
+    app.include_router(recommendations_router, prefix="/api/v1")
+
+    from app.api.recommendations import upload_document
+    from app.api.schemas import RecommendationResponse
+
+    app.add_api_route(
+        "/api/v1/documents/upload",
+        upload_document,
+        methods=["POST"],
+        response_model=RecommendationResponse,
+        tags=["documents"],
+        summary="Upload document for recommendations",
+    )
+
+    from fastapi import HTTPException
+
+    @app.exception_handler(HTTPException)
+    async def http_exception_handler(_request: Request, exc: HTTPException):
+        detail_msg = exc.detail if isinstance(exc.detail, str) else str(exc.detail)
+        return JSONResponse(
+            status_code=exc.status_code,
+            content={
+                "error": {"code": "bad_request" if exc.status_code == 400 else "http_error", "message": detail_msg},
+                "detail": detail_msg,
+            },
+        )
 
     @app.exception_handler(ServiceError)
     async def service_error_handler(_request: Request, exc: ServiceError):
